@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Processing Form</title>
+</head>
+<body>
+  <h1>Video Processing</h1>
+  <form id="videoForm">
+    <label for="VIDEO_FILES">Select Video Files:</label><br>
+    <input type="file" id="VIDEO_FILES" name="VIDEO_FILES" multiple><br><br>
+    
+    <label for="SEGMENT_LONGTIME">Segment Longtime (e.g., 3):</label><br>
+    <input type="text" id="SEGMENT_LONGTIME" name="SEGMENT_LONGTIME" value="1"><br><br>
+    
+    <label for="SEGMENT_NUMBER">Segment Number:</label><br>
+    <input type="text" id="SEGMENT_NUMBER" name="SEGMENT_NUMBER" value="60"><br><br>
+    
+    <button type="submit">Process Video</button>
+  </form>
+
+  <script>
+    document.querySelector('#videoForm').addEventListener('submit', function(event) {
+      event.preventDefault();
+
+      const videoFiles = document.querySelector('#VIDEO_FILES').files;
+      const segmentLongtime = document.querySelector('#SEGMENT_LONGTIME').value;
+      const segmentNumber = document.querySelector('#SEGMENT_NUMBER').value;
+
+      if (videoFiles.length === 0) {
+        alert('Please select at least one video file.');
+        return;
+      }
+
+      const videoNames = Array.from(videoFiles).map(file => file.name);
+
+      const data = {
+        videoNames,
+        segmentLongtime,
+        segmentNumber
+      };
+
+      fetch('/process', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      })
+      .then(response => response.text())
+      .then(data => alert(data))
+      .catch(error => console.error('Error:', error));
+    });
+  </script>
+</body>
+</html>
