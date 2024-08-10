@@ -1,29 +1,26 @@
-import ffmpeg, { setFfmpegPath, setFfprobePath, ffprobe } from 'fluent-ffmpeg';
+import ffmpeg, { ffprobe } from 'fluent-ffmpeg';
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
-import dotenv from 'dotenv';
 import async from 'async';
 
-dotenv.config();
-
-const ffmpegPath = 'C:\\ffmpeg\\bin\\ffmpeg.exe';
-const ffprobePath = 'C:\\ffmpeg\\bin\\ffprobe.exe';
-const rootDirVideo = 'C:\\Users\\Van\\Downloads\\Video';
-
-setFfmpegPath(ffmpegPath);
-setFfprobePath(ffprobePath);
+const rootDirVideo = process.env.ROOT_DIR_VIDEO
 
 const segmentDir = join('output_segments');
 const combinedVideoFolder = join('C:', 'Users', 'Van', 'Desktop', 'Source');
 
-const generateOutputFilePath = (fileName = 'combined_video_{sufix}.mp4') => {
-  return join(combinedVideoFolder, fileName.replace('{sufix}', new Date().getTime()));
+const generateOutputFilePath = (fileName: string = 'combined_video_{sufix}.mp4'): string => {
+  return join(combinedVideoFolder, fileName.replace('{sufix}', new Date().getTime().toString()));
 };
 
 const combineVideoFileName = 'combine_list_video.txt';
 
-// Function to generate random numbers
-const generateRandomNumbers = (total, segments = 60) => {
+interface Segment {
+  startTime: number;
+  segmentDuration: number;
+  outputPath: string;
+}
+
+const generateRandomNumbers = (total: number, segments: number = 60): number[] => {
   const segmentLength = total / segments;
   return Array.from({ length: segments }, (_, i) => {
     const startSegment = i * segmentLength;
@@ -35,33 +32,32 @@ const generateRandomNumbers = (total, segments = 60) => {
   });
 };
 
-// Get the duration of the video
-const getVideoDuration = (inputVideoPath) => {
+const getVideoDuration = (inputVideoPath: string): Promise<number> => {
   return new Promise((resolve, reject) => {
     ffprobe(inputVideoPath, (err, metadata) => {
       if (err) {
         return reject(err);
       }
-      resolve(metadata.format.duration);
+      resolve(metadata.format.duration || 0);
     });
   });
 };
 
-const initializeFolders = () => {
+const initializeFolders = (): void => {
   if (!existsSync(segmentDir)) mkdirSync(segmentDir);
   if (!existsSync(combinedVideoFolder)) mkdirSync(combinedVideoFolder);
 };
 
-const createVideoSegment = (inputVideoPath, segment, callback) => {
-  const { startTime, outputPath } = segment;
+const createVideoSegment = (inputVideoPath: string, segment: Segment, callback: (err?: Error) => void): void => {
+  const { startTime, outputPath, segmentDuration } = segment;
   ffmpeg(inputVideoPath)
     .setStartTime(startTime)
-    .setDuration(segment.segmentDuration)
+    .setDuration(segmentDuration)
     .videoCodec('h264_amf')
     .output(outputPath)
     .on('end', () => {
       console.log(`Segment created successfully: ${outputPath}`);
-      callback(null);
+      callback();
     })
     .on('error', (err) => {
       console.error('Error occurred:', err);
@@ -70,17 +66,17 @@ const createVideoSegment = (inputVideoPath, segment, callback) => {
     .run();
 };
 
-const processSegmentsQueue = (inputVideoPath, segments, callback) => {
+const processSegmentsQueue = (inputVideoPath: string, segments: Segment[], callback: (err?: Error) => void): void => {
   const maxConcurrentProcesses = 5; // Adjust based on your system's capability
-  const queue = async.queue((segment, cb) => createVideoSegment(inputVideoPath, segment, cb), maxConcurrentProcesses);
+  const queue = async.queue((segment: Segment, cb: (err?: Error) => void) => createVideoSegment(inputVideoPath, segment, cb), maxConcurrentProcesses);
 
   queue.drain(callback);
-  segments.forEach((segment, i) => queue.push({ ...segment, segmentDuration: segment.segmentDuration }, (err) => {
+  segments.forEach((segment, i) => queue.push({ ...segment }, (err) => {
     if (err) console.error(`Failed to process segment ${i}:`, err);
   }));
 };
 
-const combineSegments = (segmentPaths) => {
+const combineSegments = (segmentPaths: string[]): Promise<string> => {
   return new Promise((resolve, reject) => {
     const concatList = segmentPaths.map(segment => `file '${segment}'`).join('\n');
     writeFileSync(combineVideoFileName, concatList);
@@ -108,7 +104,7 @@ const combineSegments = (segmentPaths) => {
   });
 };
 
-const convertToFinalAspectRatio = (draftFileName) => {
+const convertToFinalAspectRatio = (draftFileName: string): Promise<string> => {
   const finalFileName = generateOutputFilePath();
   return new Promise((resolve, reject) => {
     ffmpeg(draftFileName)
@@ -129,7 +125,13 @@ const convertToFinalAspectRatio = (draftFileName) => {
   });
 };
 
-export const breakVideoToSegments = async (data) => {
+interface BreakVideoToSegmentsData {
+  segmentDuration: number;
+  segmentNumber: number;
+  videoName: string;
+}
+
+export const breakVideoToSegments = async (data: BreakVideoToSegmentsData): Promise<void> => {
   const { segmentDuration, segmentNumber, videoName } = data;
   const inputVideoPath = join(rootDirVideo, videoName);
   
@@ -138,13 +140,13 @@ export const breakVideoToSegments = async (data) => {
     initializeFolders();
     const randomNumbers = generateRandomNumbers(videoDuration, segmentNumber);
 
-    const segments = randomNumbers.map((startTime, i) => ({
+    const segments: Segment[] = randomNumbers.map((startTime, i) => ({
       startTime,
       outputPath: join(segmentDir, `segment_${i}.mp4`),
       segmentDuration
     }));
 
-    await new Promise((resolve, reject) => processSegmentsQueue(inputVideoPath, segments, (err) => {
+    await new Promise<void>((resolve, reject) => processSegmentsQueue(inputVideoPath, segments, (err) => {
       if (err) return reject(err);
       resolve();
     }));

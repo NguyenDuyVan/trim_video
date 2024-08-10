@@ -1,4 +1,4 @@
-import express, { urlencoded, json, static as staticExpress } from 'express';
+import express, { Request, Response } from 'express';
 import { config } from 'dotenv';
 import { setFfmpegPath, setFfprobePath } from 'fluent-ffmpeg';
 import { breakVideoToSegments } from './combineRandomSegments';
@@ -9,33 +9,39 @@ config();
 const app = express();
 const port = 3000;
 
-app.use(urlencoded({ extended: true }));
-app.use(json());
-app.use(staticExpress('public'));
+// Middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static('public'));
 
 // Path to ffmpeg and ffprobe executables
-const ffmpegPath = 'C:\\ffmpeg\\bin\\ffmpeg.exe';
-const ffprobePath = 'C:\\ffmpeg\\bin\\ffprobe.exe';
+const ffmpegPath =  process.env.FFMPEG_PATH
+const ffprobePath =  process.env.FFPROBE_PATH
 
 setFfmpegPath(ffmpegPath);
 setFfprobePath(ffprobePath);
 
 // Serve the form
-app.get('/', (req, res) => {
+app.get('/', (req: Request, res: Response) => {
   const indexPath = path.join(__dirname, '..', 'index.html');
   res.sendFile(indexPath);
 });
 
-app.get('/success', (req, res) => {
-  const indexPath = path.join(__dirname, '..', 'success.html');
-  res.sendFile(indexPath);
+app.get('/success', (req: Request, res: Response) => {
+  const successPath = path.join(__dirname, '..', 'success.html');
+  res.sendFile(successPath);
 });
 
 // Handle form submission
-app.post('/process', async (req, res) => {
+app.post('/process', async (req: Request, res: Response) => {
   const { videoNames, segmentLongtime, segmentNumber } = req.body;
+
+  if (!Array.isArray(videoNames) || typeof segmentLongtime !== 'number' || typeof segmentNumber !== 'number') {
+    return res.status(400).send('Invalid request data');
+  }
+
   try {
-    await async.eachSeries(videoNames, async (videoName) => {
+    await async.eachSeries(videoNames, async (videoName: string) => {
       await breakVideoToSegments({
         videoName,
         segmentDuration: segmentLongtime,
