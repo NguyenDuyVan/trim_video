@@ -1,9 +1,12 @@
 import express, { Request, Response } from 'express';
 import { config } from 'dotenv';
 import { setFfmpegPath, setFfprobePath } from 'fluent-ffmpeg';
-import { breakVideoToSegments } from './combineRandomSegments';
+import {
+  breakVideoToSegments,
+  BreakVideoToSegmentsData,
+} from './combineRandomSegments';
 import path from 'path';
-import async from 'async';
+import { asynchronousLoop } from './utils/asynchronousLoop';
 
 config();
 const app = express();
@@ -15,19 +18,19 @@ app.use(express.json());
 app.use(express.static('public'));
 
 // Path to ffmpeg and ffprobe executables
-const ffmpegPath =  process.env.FFMPEG_PATH
-const ffprobePath =  process.env.FFPROBE_PATH
+const ffmpegPath = process.env.FFMPEG_PATH;
+const ffprobePath = process.env.FFPROBE_PATH;
 
 setFfmpegPath(ffmpegPath);
 setFfprobePath(ffprobePath);
 
 // Serve the form
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   const indexPath = path.join(__dirname, '..', 'index.html');
   res.sendFile(indexPath);
 });
 
-app.get('/success', (req: Request, res: Response) => {
+app.get('/success', (_req: Request, res: Response) => {
   const successPath = path.join(__dirname, '..', 'success.html');
   res.sendFile(successPath);
 });
@@ -36,19 +39,15 @@ app.get('/success', (req: Request, res: Response) => {
 app.post('/process', async (req: Request, res: Response) => {
   const { videoNames, segmentLongtime, segmentNumber } = req.body;
 
-  if (!Array.isArray(videoNames) || typeof segmentLongtime !== 'number' || typeof segmentNumber !== 'number') {
-    return res.status(400).send('Invalid request data');
-  }
-
   try {
-    await async.eachSeries(videoNames, async (videoName: string) => {
-      await breakVideoToSegments({
-        videoName,
-        segmentDuration: segmentLongtime,
-        segmentNumber: segmentNumber,
-      });
+    const data: BreakVideoToSegmentsData[] = videoNames.map((item: string) => ({
+      videoName: item,
+      segmentDuration: segmentLongtime,
+      segmentNumber: segmentNumber,
+    }));
+    asynchronousLoop(data, breakVideoToSegments).then(() => {
+      res.redirect('/success');
     });
-    res.redirect('/success');
   } catch (err) {
     console.error('Error processing videos:', err);
     res.status(500).send('Error processing videos');

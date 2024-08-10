@@ -1,14 +1,19 @@
 {
     "compilerOptions": {
       "module": "commonjs",
-      "target": "es6",
+      "target": "es5",
       "outDir": "./dist",
+      "lib": ["es5", "es6", "dom"],
       "strict": true,
       "esModuleInterop": true,
-      "skipLibCheck": true
+      "skipLibCheck": true,
+      "rootDir": "src",
+      "forceConsistentCasingInFileNames": true,
+      "noEmitOnError": false
     },
     "include": [
       "src/**/*",
       "env.d.ts" // Include the declaration file
-    ]
+    ],
+    "exclude": ["node_modules"]
   }
