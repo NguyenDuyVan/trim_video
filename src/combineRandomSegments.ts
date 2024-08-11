@@ -1,4 +1,4 @@
-import ffmpeg, { ffprobe, setFfmpegPath, setFfprobePath } from 'fluent-ffmpeg';
+import ffmpeg, { ffprobe } from 'fluent-ffmpeg';
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, rmSync } from 'fs';
 import { join } from 'path';
 import async from 'async';
@@ -6,11 +6,6 @@ import { config } from 'dotenv';
 config();
 
 const rootDirVideo = process.env.ROOT_DIR_VIDEO;
-const ffmpegPath = process.env.FFMPEG_PATH;
-const ffprobePath = process.env.FFPROBE_PATH;
-
-setFfmpegPath(ffmpegPath);
-setFfprobePath(ffprobePath);
 
 const segmentDir = join('output_segments');
 const combinedVideoFolder = join('C:', 'Users', 'Van', 'Desktop', 'Source');

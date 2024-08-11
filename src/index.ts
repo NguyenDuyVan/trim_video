@@ -45,7 +45,7 @@ app.post('/process', async (req: Request, res: Response) => {
       segmentDuration: segmentLongtime,
       segmentNumber: segmentNumber,
     }));
-    asynchronousLoop(data, breakVideoToSegments).then(() => {
+    asynchronousLoop(data, breakVideoToSegments, 5000).then(() => {
       res.redirect('/success');
     });
   } catch (err) {
